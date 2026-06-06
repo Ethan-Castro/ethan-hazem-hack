@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RepReady — Training Summary</title>
+<style>
+  :root { color-scheme: light dark; --bg:#0f1115; --card:#181b22; --line:#272b35;
+          --txt:#e8eaf0; --mut:#9aa3b2; --accent:#4ade80; --warn:#fbbf24; --bad:#f87171; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+         background:var(--bg); color:var(--txt); padding:16px; }
+  h1 { font-size:18px; margin:0 0 2px; }
+  .sub { color:var(--mut); font-size:13px; margin-bottom:14px; }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .stat .n { font-size:22px; font-weight:700; }
+  .stat .l { color:var(--mut); font-size:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px; }
+  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin:0 0 10px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { background:#202531; border:1px solid var(--line); border-radius:999px; padding:3px 10px; font-size:12px; }
+  .wp { margin:8px 0; }
+  .wp .row { display:flex; justify-content:space-between; font-size:13px; margin-bottom:3px; }
+  .bar { height:8px; background:#202531; border-radius:6px; overflow:hidden; }
+  .bar > span { display:block; height:100%; background:var(--bad); }
+  .tier { font-size:11px; padding:1px 7px; border-radius:999px; }
+  .tier.elite{background:#064e3b;color:#6ee7b7} .tier.competitive{background:#155e44;color:#a7f3d0}
+  .tier.intermediate{background:#5b4a12;color:#fde68a} .tier.beginner{background:#5b1d1d;color:#fecaca}
+  .pain { color:var(--warn); }
+  .muted { color:var(--mut); }
+</style>
+</head>
+<body>
+<div id="root" class="muted">Loading training summary…</div>
+<script>
+(function(){
+  var fmt = function(s){ s = Math.round(s||0); var m = Math.floor(s/60); return m ? (m+":"+String(s%60).padStart(2,"0")) : (s+"s"); };
+  var esc = function(x){ return String(x==null?"":x).replace(/[&<>]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]; }); };
+  var stationLabel = function(s){ return esc(String(s).replace(/_/g," ").replace(/\b\w/g, function(c){ return c.toUpperCase(); })); };
+
+  function render(d){
+    var a = d.athlete || {}, t = d.totals || {};
+    var weak = d.weak_points || [];
+    var maxGap = Math.max.apply(null, [1].concat(weak.map(function(w){ return Math.abs(w.gap_to_competitive_sec || 0); })));
+    var root = document.getElementById("root");
+    root.className = "";
+    root.innerHTML =
+      '<h1>' + esc(a.name || "Athlete") + '</h1>' +
+      '<div class="sub">' + esc(a.division || "") + ' ' + esc(a.gender || "") + ' · goal ' + esc(a.goal_finish_time || "—") +
+        ' at ' + esc(a.goal_event || "—") + (a.goal_event_date ? " (" + esc(a.goal_event_date) + ")" : "") +
+        (a.current_pb ? " · PB " + esc(a.current_pb) : "") + '</div>' +
+      '<div class="grid">' +
+        '<div class="stat"><div class="n">' + (t.sessions != null ? t.sessions : 0) + '</div><div class="l">sessions</div></div>' +
+        '<div class="stat"><div class="n">' + (t.distance_km != null ? t.distance_km : 0) + '</div><div class="l">km logged</div></div>' +
+        '<div class="stat"><div class="n">' + (t.avg_rpe != null ? t.avg_rpe : "—") + '</div><div class="l">avg RPE</div></div>' +
+        '<div class="stat"><div class="n">' + (t.hard_sessions != null ? t.hard_sessions : 0) + '</div><div class="l">hard sessions</div></div>' +
+      '</div>' +
+      '<div class="card"><h2>Weak points vs ' + esc(a.division||"Open") + ' ' + esc(a.gender||"") + ' benchmark</h2>' +
+        (weak.length ? weak.map(function(w){
+          return '<div class="wp"><div class="row">' +
+            '<span>' + stationLabel(w.station) + ' <span class="tier ' + esc(w.tier) + '">' + esc(w.tier) + '</span></span>' +
+            '<span class="muted">' + fmt(w.your_best_sec) + ' · ' + (w.gap_to_competitive_sec>0 ? "+"+w.gap_to_competitive_sec+"s over" : "on") + ' competitive</span>' +
+            '</div><div class="bar"><span style="width:' + Math.min(100, Math.abs(w.gap_to_competitive_sec)/maxGap*100) + '%"></span></div></div>';
+        }).join("") : '<div class="muted">' + esc(d.weak_points_note || "No station times found in recent history.") + '</div>') +
+      '</div>' +
+      '<div class="card"><h2>Session mix</h2><div class="chips">' +
+        (Object.keys(d.sessions_by_type||{}).map(function(k){ return '<span class="chip">' + stationLabel(k) + ' · ' + d.sessions_by_type[k] + '</span>'; }).join("") || '<span class="muted">—</span>') +
+        '</div>' + ((d.pain_days||[]).length ? '<div class="pain" style="margin-top:10px">⚠ Pain flagged on: ' + d.pain_days.map(esc).join(", ") + '</div>' : "") +
+      '</div>';
+  }
+
+  try { render(window.__REPREADY_DATA__ || {}); }
+  catch (e) { document.getElementById("root").textContent = "Could not render dashboard: " + e.message; }
+})();
+</script>
+</body>
+</html>

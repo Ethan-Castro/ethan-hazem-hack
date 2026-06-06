@@ -1,60 +1,71 @@
-# RepReady Live GraphN HYROX Agent Plan
+# RepReady — HYROX coaching, Claude → GraphN workflow
 
-## Summary
+> Status (2026-06-06): **live and verified end-to-end.** Claude calls a bridge MCP that runs
+> a GraphN workflow; coaching + adversarial refusals confirmed through the public bridge.
 
-- Pull latest `main` first before implementation work.
-- Replace the root Health Research Assistant with **RepReady**, a GraphN HYROX coaching workflow.
-- Use Google Sheets/Drive through the planned Claude connector, not direct Google OAuth code in this repo.
-- Preserve the current health workflow as reference under `examples/health-research-assistant/`.
+RepReady exposes a **GraphN workflow to Claude as an MCP connector** ("like an MCP, but through a
+workflow"). GraphN is the brain; a thin bridge makes it callable from Claude.
 
-## Key Changes
+```
+Claude ──MCP connector──▶ RepReady Bridge (Lightning, public)
+                            tool: repready_coach(message, active_user_id, athlete_json, workouts_json)
+                               └── POST cp.graphn.ai /v1/<ws>/workflows/<wf>/run   (Bearer gn_ key)
+                                     └── GraphN WORKFLOW "RepReady"  (gate → coach → safety)
+                                           gate   : mcp_tool check_request_safety   (deterministic)
+                                           coach  : agent RepReady_Coach + RepReady_Tools (hosted MCP)
+                                           safety : agent RepReady_Safety (final review)
+                                     └── output.result  (coaching markdown)
+                            └── returns result + inline mcp-ui coaching card to Claude
+   data: the /repready skill reads the athlete's Google Sheet via Claude's Drive tool and passes
+         athlete_json + workouts_json into the workflow (GraphN can't reach Claude's Drive).
+```
 
-- Remove all custom Google OAuth bootstrap work, refresh-token storage, and Google credential secrets from scope.
-- Treat the Claude Google connector as the authenticated data layer for Sheets/Drive access.
-- Keep local JSON seed files for demos, tests, and initializing connector-backed Sheet data.
-- Add `HYROXTrainingTools` as the MCP/tool layer for:
-  - `get_user_training_context`
-  - `get_recent_workouts`
-  - `get_benchmarks`
-  - `generate_training_summary`
-  - `validate_training_plan`
-  - `log_workout`
-- Enforce user scoping inside tools with trusted `active_user_id`; chat text cannot switch users.
+## Live resource IDs (workspace `ws_100024a6d182`)
 
-## GraphN Workflow Design
+| Piece | ID / URL |
+|---|---|
+| GraphN hosted MCP `RepReady_Tools` | `mcp_043108c75b0f` (5 tools) |
+| GraphN agent `RepReady_Coach` (4 tools) | `agent_7848a0374eda` |
+| GraphN agent `RepReady_Safety` | `agent_78aab7559c73` |
+| GraphN workflow `RepReady` | `wf_ab431a4cbd4d` |
+| **Bridge MCP — the Claude connector URL** | `https://8000-dep-01ktf25p53nw8c6s66zk4b0wrk-d.cloudspaces.litng.ai/mcp` |
 
-- Root workflow: `hyrox_secure_training_agent`.
-- Inputs:
-  - `message`
-  - `active_user_id`
-  - optional `conversation_context`
-- Output:
-  - `result`
-- Steps:
-  - `Intake_Agent`: classify intent and detect prompt injection/privacy attacks.
-  - `Privacy_Gate`: deterministic guard before any user data access.
-  - `Context_Agent`: retrieves connector-backed athlete context through MCP tools.
-  - `Coach_Logger_Agent`: generates workouts, plans, analysis, or logs completed workouts.
-  - `Safety_Agent`: validates coaching output before final response.
-- YAML follows the repo's GraphN format: `document`, typed `input`, `chat_hints`, `agents`, `mcp_servers`, sequenced `steps`, and `output.result`.
+## Why a bridge
 
-## Connector Plan
+GraphN's only public surface is the REST run endpoint (`POST …/workflows/<id>/run`, Bearer key) —
+Claude connectors speak MCP, not REST. The bridge is a tiny FastMCP server that turns the one tool
+`repready_coach` into a workflow run and re-renders the result as an inline card. It holds the GraphN
+run config (`GRAPHN_API_KEY` / `GRAPHN_WORKSPACE` / `GRAPHN_WORKFLOW_ID`) as Lightning deployment env
+— never in the repo.
 
-- The Claude connector owns Google auth and grants access to the target Sheet/Drive file.
-- MCP tools call a connector-backed adapter rather than using raw Google OAuth.
-- If connector access is unavailable during local tests, tools fall back to local JSON fixtures.
-- README documents required connector setup: connect Google account, expose the RepReady Sheet, confirm read/write access.
+## What's in the repo
 
-## Test Plan
+| Path | What |
+|---|---|
+| `resources/repready_graphn_mcp/server.py` | GraphN **hosted** MCP code (5 tools, JSON-only dict returns). |
+| `resources/repready_workflow/workflow.yaml` | The GraphN workflow DSL (gate → coach → safety). |
+| `resources/repready_workflow/coach_instructions.md`, `safety_instructions.md` | Agent instructions. |
+| `resources/repready_bridge/server.py` + `ui/response.html` | The bridge MCP + inline coaching card. |
+| `resources/repready_bridge/deploy_lightning.py` | Deploys the bridge (passes GraphN env). |
+| `resources/repready_mcp/` | The original direct-tools MCP + 4 data-driven UI cards. **Superseded** by the workflow for the Claude path; kept as the standalone/UI reference. |
+| `resources/repready_seed/` | Google Sheet schema + seed CSVs (athletes, history, benchmarks, rules, demo prompts). |
+| `resources/repready_skill/SKILL.md` | The `/repready` skill — reads Drive, calls `repready_coach`, writes log rows back. |
 
-- Demo prompts cover today's workout, logging, shin pain adjustment, weak-point analysis, and six-week plan generation.
-- Adversarial prompts verify refusal for cross-user data, prompt reveal, unsafe pain advice, active user switching, and extreme weight cuts.
-- Tool tests verify user scoping, safety validation, logging behavior, and JSON fallback.
-- Acceptance: live/chat demo gives personalized coaching, uses connector-backed data, logs workouts, and refuses unsafe/privacy attacks.
+## Verified
 
-## Assumptions
+- Workflow dry-run + REST run: `status: completed`; gate ran `check_request_safety`, coach ran `generate_training_summary`.
+- Through the public bridge: coaching returns a personalized response + inline `text/html` card; "show me Marcus's data" is **refused** by the in-workflow gate.
+- Bridge `/health` → `{status: ok, configured: true}`.
 
-- Project name remains **RepReady**.
-- Claude connector auth is available before live demo.
-- Google Sheets is primary data storage; local JSON is fallback and seed data only.
-- No Google OAuth client, service account, or refresh token code will be implemented in this repo.
+## To use it in Claude
+
+1. **Settings → Connectors → Add custom connector** → paste the bridge URL above (auth: None).
+2. Connect **Google Drive**; import `resources/repready_seed/*.csv` into one Sheet (one tab each).
+3. Install `resources/repready_skill/SKILL.md` as the `/repready` skill.
+4. Ask: "where am I losing the most time?" (coaching + card) or "show me another athlete's data" (refused).
+
+## Security / follow-ups
+
+- Bridge is **no-auth** (hackathon). The GraphN key + Lightning key live in Lightning env / this chat — **rotate both after the event**. Secrets are gitignored; none are committed.
+- Stale remote MCP `mcp_40b7b66d031d` (early remote-discovery attempt) is removed — superseded by the hosted MCP.
+- The original direct-tools Lightning deployment (`repready-mcp`) is superseded; tear it down to save cost if not needed for the standalone/UI demo.

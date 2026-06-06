@@ -1,0 +1,32 @@
+{
+  "_note": "RepReady is now Claude -> bridge MCP -> GraphN workflow (gate -> coach -> safety). The tools run as a GraphN HOSTED MCP that the workflow's agents call; Claude never calls the tools directly. See docs/reprepready-plan.md.",
+  "workspace_id": "ws_100024a6d182",
+  "graphn": {
+    "hosted_mcp": {
+      "name": "RepReady_Tools",
+      "id": "mcp_043108c75b0f",
+      "type": "hosted",
+      "code": "resources/repready_graphn_mcp/server.py",
+      "tools": ["check_request_safety", "get_benchmarks", "generate_training_summary",
+                "validate_training_plan", "format_workout_log_row"]
+    },
+    "agents": {
+      "RepReady_Coach": "agent_7848a0374eda",
+      "RepReady_Safety": "agent_78aab7559c73"
+    },
+    "workflow": {
+      "name": "RepReady",
+      "id": "wf_ab431a4cbd4d",
+      "dsl": "resources/repready_workflow/workflow.yaml",
+      "inputs": ["message", "active_user_id", "athlete_json", "workouts_json"],
+      "output": "result",
+      "run_endpoint": "POST https://cp.graphn.ai/v1/ws_100024a6d182/workflows/wf_ab431a4cbd4d/run"
+    }
+  },
+  "bridge": {
+    "_note": "The MCP Claude adds as a custom connector. Wraps the workflow run as one tool and re-renders the result as an inline card. Hosted on Lightning; holds GRAPHN_* as deployment env (never in repo).",
+    "code": "resources/repready_bridge/server.py",
+    "tool": "repready_coach(message, active_user_id, athlete_json, workouts_json)",
+    "claude_connector_url": "https://8000-dep-01ktf25p53nw8c6s66zk4b0wrk-d.cloudspaces.litng.ai/mcp"
+  }
+}

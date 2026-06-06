@@ -59,6 +59,19 @@ The deployed workflow is `workflow.yaml` at the repo root. The `examples/` direc
 
 `examples/developing-with-agents.md` — the full CLI install / auth / edit → validate → dry-run → publish loop, MCP-serve setup, and troubleshooting.
 
+## RepReady (separate connector + skill — NOT a GraphN workflow)
+
+`resources/repready_*` and `docs/reprepready-plan.md` are a second project: **RepReady**, a HYROX
+coaching connector. Architecture: **Claude → bridge MCP → GraphN workflow** ("expose GraphN to
+Claude through a workflow"). It IS a GraphN workflow (`wf_ab431a4cbd4d`) — see `resources/mcp_repready.json`.
+
+- `resources/repready_graphn_mcp/server.py` — the GraphN **hosted** MCP `RepReady_Tools` (`mcp_043108c75b0f`, 5 JSON-only tools) the workflow's agents call.
+- `resources/repready_workflow/` — the GraphN workflow DSL (gate → coach → safety) + agent instructions (`RepReady_Coach` `agent_7848a0374eda`, `RepReady_Safety` `agent_78aab7559c73`).
+- `resources/repready_bridge/` — a thin **FastMCP** bridge on **Lightning AI** exposing one tool `repready_coach`, which POSTs to the GraphN workflow run endpoint and re-renders the result as an inline mcp-ui card. This is the URL Claude adds as a custom connector. Holds `GRAPHN_*` as Lightning deployment env.
+- `resources/repready_mcp/` — the original standalone Lightning tools server + data-driven UI cards; **superseded** by the workflow for the Claude path (kept as reference).
+- `resources/repready_skill/SKILL.md` — the `/repready` Claude skill: reads the athlete's Google Sheet via Claude's native Drive tool, calls `repready_coach`, writes log rows back. Tools take a trusted `active_user_id`.
+- MCP endpoint path is `/mcp` (no trailing slash). Never commit Lightning/GraphN/Google secrets (gitignored); rotate keys after the event.
+
 ## Critical Rules (MUST follow)
 
 - **ALWAYS use the returned ID** after any `create` command for ALL subsequent operations — `get`, `update`, `publish`, `test`, `delete`. Names can resolve to wrong resources. NEVER pass a name where an ID is expected.

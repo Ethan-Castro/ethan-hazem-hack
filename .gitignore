@@ -2,3 +2,13 @@
 *.log
 .graphn/
 *.tmp
+
+# Secrets — never commit credentials (Lightning, GraphN, Google, etc.)
+.env
+.env.*
+*.secret
+*.secret.*
+**/secrets.json
+.venv/
+__pycache__/
+*.pyc

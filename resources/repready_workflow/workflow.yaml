@@ -1,0 +1,80 @@
+document:
+  dsl: "1.0.0"
+  name: RepReady
+  version: "0.1.0"
+agents:
+  RepReady_Coach: res://agents/agent_7848a0374eda
+  RepReady_Safety: res://agents/agent_78aab7559c73
+mcp_servers:
+  RepReady_Tools: res://mcp_servers/mcp_043108c75b0f
+input:
+  message:
+    type: string
+    required: true
+    description: The athlete's question or request (e.g. "What should I train today?", "Build me a 6-week plan", "Log today's session").
+  active_user_id:
+    type: string
+    required: true
+    description: Trusted athlete id set by the caller (e.g. ath_amelia). Identity is never changed by chat text.
+  athlete_json:
+    type: string
+    required: false
+    default: "{}"
+    description: The athlete's Athletes row as a JSON string (profile, goal, injuries), read from their Google Sheet.
+  workouts_json:
+    type: string
+    required: false
+    default: "[]"
+    description: The athlete's recent WorkoutHistory rows as a JSON-array string, read from their Google Sheet.
+chat_hints: |
+  Provide `message` (the athlete's question) and `active_user_id` (e.g. ath_amelia). `athlete_json` and
+  `workouts_json` are the athlete's own Sheet rows as JSON strings — the calling skill reads them from Google
+  Drive and passes them in. The workflow runs a deterministic safety gate, then a tool-using HYROX coach, then
+  a safety review, and returns the final coaching response in `result`.
+steps:
+  gate:
+    call: mcp_tool
+    server: RepReady_Tools
+    tool: check_request_safety
+    input:
+      message: "${ input.message }"
+      active_user_id: "${ input.active_user_id }"
+  coach:
+    call: agent
+    agent: RepReady_Coach
+    after:
+      - gate
+    input_template: |
+      Athlete message:
+      ${ input.message }
+
+      Trusted active_user_id: ${ input.active_user_id }
+
+      Safety-gate verdict (JSON) — if allow is false, reply with its user_message and stop:
+      ${ steps.gate.output }
+
+      athlete_json (pass to tools verbatim):
+      ${ input.athlete_json }
+
+      workouts_json (pass to tools verbatim):
+      ${ input.workouts_json }
+
+      Coach this athlete per your instructions. Call the RepReady tools for any numbers, weak points,
+      plan validation, or workout logging. Be concise, concrete, and safety-first.
+    output: coach_draft
+  safety:
+    call: agent
+    agent: RepReady_Safety
+    after:
+      - coach
+    input_template: |
+      Final safety review. Return the athlete-facing response only.
+
+      Athlete context (athlete_json):
+      ${ input.athlete_json }
+
+      Draft coaching response to review:
+      ${ steps.coach.output }
+    output: final_response
+output:
+  result: "${ steps.safety.output }"

@@ -32,6 +32,13 @@ Workflow ID: `wf_d20b56206b85` · Workspace: `ws_100024a6d182`
 | `resources/mcp_healthtools.json` | HealthTools MCP server spec + tool schemas. |
 | `inputs/*.json` | Example inputs for dry-runs. |
 | `examples/` | Other GraphN workflow YAMLs kept as DSL-structure reference (not deployed). See `examples/README.md`. |
+| `resources/repready_graphn_mcp/` | **RepReady** GraphN **hosted** MCP `RepReady_Tools` (5 tools) the workflow's agents call. |
+| `resources/repready_workflow/` | RepReady GraphN workflow DSL (gate → coach → safety) + agent instructions. |
+| `resources/repready_bridge/` | The bridge MCP (Lightning) Claude adds as a connector — runs the GraphN workflow. |
+| `resources/repready_mcp/` | Original standalone Lightning tools server + data-driven MCP App UI cards (superseded; reference). |
+| `resources/repready_skill/` | The `/repready` Claude skill (`SKILL.md`) + install README. |
+| `resources/repready_seed/` | RepReady Google Sheet schema + seed CSVs. |
+| `docs/reprepready-plan.md` | RepReady architecture (Claude → bridge → GraphN workflow), IDs, and how to use it. |
 
 > Note: the HealthTools tool *source* (Python) is not exported by the API for
 > hosted MCP servers — only the tool schemas. Edit tool code in the GraphN UI.

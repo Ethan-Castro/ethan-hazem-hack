@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RepReady — HYROX Benchmarks</title>
+<style>
+  :root { color-scheme: light dark; --bg:#0f1115; --card:#181b22; --line:#272b35; --txt:#e8eaf0; --mut:#9aa3b2; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:13px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+         background:var(--bg); color:var(--txt); padding:16px; }
+  h1 { font-size:18px; margin:0 0 2px; }
+  .sub { color:var(--mut); font-size:12px; margin-bottom:14px; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  th, td { padding:8px 10px; text-align:right; border-bottom:1px solid var(--line); }
+  th:first-child, td:first-child { text-align:left; }
+  thead th { color:var(--mut); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  tbody tr:last-child td { border-bottom:none; }
+  .w { color:var(--mut); font-size:11px; }
+  .elite{color:#6ee7b7} .comp{color:#a7f3d0} .inter{color:#fde68a} .beg{color:#fecaca}
+</style>
+</head>
+<body>
+<div id="root" style="color:#9aa3b2">Loading benchmarks…</div>
+<script>
+(function(){
+  var fmt = function(s){ s=Math.round(s||0); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); };
+  var esc = function(x){ return String(x==null?"":x).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];}); };
+  var label = function(s){ return esc(String(s).replace(/_/g," ").replace(/\b\w/g,function(c){return c.toUpperCase();})); };
+
+  function render(d){
+    var rows = d.stations || [];
+    var root = document.getElementById("root");
+    root.style.color = "";
+    root.innerHTML =
+      '<h1>' + esc(d.title || "HYROX standards") + '</h1>' +
+      '<div class="sub">' + esc(d.note || "") + '</div>' +
+      '<table><thead><tr><th>Station</th><th>Load</th><th class="elite">Elite</th><th class="comp">Competitive</th><th class="inter">Intermediate</th><th class="beg">Beginner</th></tr></thead><tbody>' +
+      rows.map(function(r){
+        return '<tr><td>' + label(r.station) + '</td>' +
+          '<td class="w">' + (r.reps ? (r.reps+" reps") : (r.weight_kg ? r.weight_kg+" kg" : "—")) + '</td>' +
+          '<td class="elite">' + fmt(r.elite_time_sec) + '</td>' +
+          '<td class="comp">' + fmt(r.competitive_time_sec) + '</td>' +
+          '<td class="inter">' + fmt(r.intermediate_time_sec) + '</td>' +
+          '<td class="beg">' + fmt(r.beginner_time_sec) + '</td></tr>';
+      }).join("") +
+      '</tbody></table>';
+  }
+
+  try { render(window.__REPREADY_DATA__ || {}); }
+  catch (e) { document.getElementById("root").textContent = "Could not render benchmarks: " + e.message; }
+})();
+</script>
+</body>
+</html>

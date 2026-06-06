@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RepReady — Plan Check</title>
+<style>
+  :root { color-scheme: light dark; --bg:#0f1115; --card:#181b22; --line:#272b35;
+          --txt:#e8eaf0; --mut:#9aa3b2; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+         background:var(--bg); color:var(--txt); padding:16px; }
+  .banner { border-radius:12px; padding:12px 14px; font-weight:600; margin-bottom:14px; }
+  .banner.ok { background:#0c3b2a; color:#a7f3d0; border:1px solid #155e44; }
+  .banner.bad { background:#3b1414; color:#fecaca; border:1px solid #7f1d1d; }
+  .week { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; }
+  .week h3 { margin:0 0 8px; font-size:14px; display:flex; justify-content:space-between; }
+  .meta { color:var(--mut); font-size:12px; font-weight:400; }
+  .issue { display:flex; gap:8px; align-items:flex-start; font-size:13px; margin:5px 0; }
+  .badge { flex:none; font-size:10px; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:6px; margin-top:1px; }
+  .badge.block{background:#7f1d1d;color:#fecaca} .badge.warn{background:#5b4a12;color:#fde68a} .badge.info{background:#1e3a5f;color:#bfdbfe}
+  .none { color:var(--mut); font-size:12px; }
+</style>
+</head>
+<body>
+<div id="root" style="color:#9aa3b2">Checking plan…</div>
+<script>
+(function(){
+  var esc = function(x){ return String(x==null?"":x).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];}); };
+  var badge = function(sev){ return '<span class="badge ' + esc(sev) + '">' + esc(sev) + '</span>'; };
+
+  function render(d){
+    var root = document.getElementById("root");
+    root.style.color = "";
+    var weeks = d.weeks || [];
+    root.innerHTML =
+      '<div class="banner ' + (d.ok?"ok":"bad") + '">' + (d.ok?"✓":"✕") + ' ' + esc(d.summary || (d.ok?"Plan passes":"Plan blocked")) + '</div>' +
+      (weeks.map(function(w){
+        return '<div class="week"><h3>Week ' + esc(w.week) +
+          ' <span class="meta">' + w.hard_sessions + ' hard · ' + w.rest_days + ' rest · ' + w.volume_km + ' km</span></h3>' +
+          ((w.issues||[]).length ? (w.issues||[]).map(function(i){ return '<div class="issue">' + badge(i.severity) + '<span>' + esc(i.message) + '</span></div>'; }).join("")
+            : '<div class="none">No issues.</div>') +
+          '</div>';
+      }).join("") || '<div class="none">No weeks supplied.</div>');
+  }
+
+  try { render(window.__REPREADY_DATA__ || {}); }
+  catch (e) { document.getElementById("root").textContent = "Could not render plan: " + e.message; }
+})();
+</script>
+</body>
+</html>
