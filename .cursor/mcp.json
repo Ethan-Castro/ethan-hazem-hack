@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "graphn": {
+      "args": [
+        "mcp-serve"
+      ],
+      "command": "/Users/ethancastro/.local/bin/graphn"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "graphn": {
+      "args": [
+        "mcp-serve"
+      ],
+      "command": "/Users/ethancastro/.local/bin/graphn"
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(graphn *)",
+      "Bash(graphn)",
+      "mcp__graphn__*"
+    ]
+  }
+}

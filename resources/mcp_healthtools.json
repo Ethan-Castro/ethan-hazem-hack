@@ -1,0 +1,62 @@
+{
+  "content_hash": "a7ace7062dd51fcd",
+  "created_at": "2026-06-06T15:03:01Z",
+  "has_unpublished_changes": false,
+  "id": "mcp_a0b7b535fc33",
+  "name": "HealthTools",
+  "owner_id": "2d154d8e-1adf-41e8-baa4-bc790ccf9df2",
+  "published_version_id": "rv_5c836089fc5b",
+  "runtime_status": "stopped",
+  "spec": {
+    "type": "hosted"
+  },
+  "status": "active",
+  "tools": [
+    {
+      "description": "Search PubMed for medical research papers. Returns titles, authors,\njournals, and links to full articles.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "max_results": {
+            "default": 5,
+            "type": "integer"
+          },
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "search_medical_literature"
+    },
+    {
+      "description": "Look up FDA drug label information including approved uses, warnings,\ndrug interactions, dosage, and side effects.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "drug_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "drug_name"
+        ],
+        "type": "object"
+      },
+      "name": "lookup_drug_info"
+    }
+  ],
+  "updated_at": "2026-06-06T15:03:19Z",
+  "versions": [
+    {
+      "content_hash": "a7ace7062dd51fcd",
+      "created_at": "2026-06-06T15:03:19.182855199Z",
+      "version_id": "rv_5c836089fc5b",
+      "version_number": 1
+    }
+  ],
+  "workspace_id": "ws_100024a6d182"
+}

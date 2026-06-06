@@ -1,0 +1,39 @@
+agents:
+    PatientAdvisor: res://agents/agent_51b846ab8443
+    Researcher: res://agents/agent_2aa8dd010563
+document:
+    dsl: 1.0.0
+    name: Health Research Assistant
+    version: 0.2.0
+input:
+    question:
+        description: Your health question (e.g. 'What are the side effects of metformin?' or 'How does exercise affect blood pressure?')
+        type: string
+mcp_servers:
+    HealthTools: res://mcp_servers/mcp_a0b7b535fc33
+output:
+    result: ${steps.advise.output}
+steps:
+    advise:
+        after:
+            - research
+        agent: PatientAdvisor
+        call: agent
+        input_template: |
+            Translate the following medical research into a patient-friendly response.
+
+            <research>
+            ${steps.research.output}
+            </research>
+        output: patient_guidance
+    research:
+        agent: Researcher
+        call: agent
+        input_template: |
+            Research the following health question thoroughly.
+            Use search_medical_literature to find recent studies, and lookup_drug_info if a specific medication is mentioned.
+
+            <question>
+            ${input.question}
+            </question>
+        output: research_findings
