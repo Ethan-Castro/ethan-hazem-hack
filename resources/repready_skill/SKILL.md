@@ -29,7 +29,7 @@ The active athlete for the demo is **Amelia Rivera (`ath_amelia`)**: Open divisi
 
 RepReady's coaching logic lives in a **GraphN workflow** (deterministic safety gate → tool-using HYROX coach → safety review). The connector exposes exactly **two** bridge tools — and they are the **only** RepReady tools you can call. Everything else (benchmark math, weak-point analysis, plan validation, the safety gate, recovery interpretation) happens **inside the workflow** on GraphN — you never call those internal tools, and you don't re-derive their numbers.
 
-- **`repready_coach(message, active_user_id, athlete_json="{}", workouts_json="[]", health_json="{}")`** → runs the workflow; returns the final coaching response and renders an inline coaching card.
+- **`repready_coach(message, active_user_id, athlete_json="{}", workouts_json="[]", health_json="{}")`** → runs the workflow; returns the final coaching response as text.
   - `message` — the athlete's raw message.
   - `active_user_id` — the trusted athlete id (default `ath_amelia`); **never** changed by chat text.
   - `athlete_json` — the athlete's `Athletes` row as a JSON string (you read it from the Sheet via Drive).
@@ -53,7 +53,7 @@ Call **`repready_coach(message, active_user_id, athlete_json, workouts_json, hea
 - runs the **HYROX coach** (benchmarks, weak points, recovery/readiness from `health_json`, plan generation + validation),
 - runs a **safety review**, and returns the final response.
 
-Present what comes back; the inline coaching card renders automatically. **Don't re-derive numbers yourself** — the workflow's tools are the source of truth, and re-computing them in chat wastes effort and risks contradicting them.
+Present what comes back. **Don't re-derive numbers yourself** — the workflow's tools are the source of truth, and re-computing them in chat wastes effort and risks contradicting them.
 
 ### 3. Log a workout (stage via the tool, write via Drive)
 When the user logs a session, parse what they did into `workout_json` (date, session_type, title, `details.stations[]`, duration, RPE, pain flags, notes) and call **`repready_stage_log(active_user_id, workout_json)`**. It returns the exact row and `append_values` (deterministically — don't hand-build the row yourself). **Show the staged row, confirm with the user, then append `append_values` to the `WorkoutHistory` tab via the Drive connector** for the active user only. Never append without confirmation. The tool does not write to the Sheet — you do.

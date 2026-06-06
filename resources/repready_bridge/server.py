@@ -4,7 +4,7 @@
 This is the "expose GraphN to Claude through a workflow" piece. Claude adds this as a
 custom connector; calling `repready_coach` runs the RepReady GraphN workflow
 (gate → coach → safety) via GraphN's REST run endpoint and returns the coaching result
-PLUS an inline mcp-ui response card (rendered from the result).
+as plain text.
 
 Config (env, never in repo):
   GRAPHN_API_KEY      gn_… workspace key with run access
@@ -19,7 +19,6 @@ from __future__ import annotations
 import json
 import os
 from datetime import date
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -30,7 +29,6 @@ GRAPHN_URL = os.environ.get("GRAPHN_URL", "https://cp.graphn.ai").rstrip("/")
 WORKSPACE = os.environ.get("GRAPHN_WORKSPACE", "")
 WORKFLOW_ID = os.environ.get("GRAPHN_WORKFLOW_ID", "")
 API_KEY = os.environ.get("GRAPHN_API_KEY", "")
-UI_DIR = Path(__file__).parent / "ui"
 
 mcp = FastMCP(
     "RepReady",
@@ -39,24 +37,12 @@ mcp = FastMCP(
         "- repready_coach: the main coaching call. Pass the athlete's message, the trusted "
         "active_user_id (default ath_amelia for the demo), their athlete_json + workouts_json "
         "read from the Google Sheet via the Drive tool, and optional health_json (Apple Health / "
-        "wearable data you read natively). Returns the coaching response + an inline card.\n"
+        "wearable data you read natively). Returns the coaching response as text.\n"
         "- repready_stage_log: when the athlete logs a workout, call this to get the exact, "
         "deterministically-formatted WorkoutHistory row (append_values). Show it, get the "
         "athlete's confirmation, then YOU append it to the Sheet via the Drive tool."
     ),
 )
-
-
-def _ui_result(payload: dict, ui_file: str, text: str) -> list:
-    blob = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/")
-    html = (UI_DIR / ui_file).read_text(encoding="utf-8")
-    tag = f"<script>window.__REPREADY_DATA__ = {blob};</script>"
-    html = html.replace("</head>", tag + "\n</head>", 1) if "</head>" in html else tag + html
-    return [
-        mt.TextContent(type="text", text=text),
-        mt.EmbeddedResource(type="resource", resource=mt.TextResourceContents(
-            uri=f"ui://repready/{ui_file}", mimeType="text/html", text=html)),
-    ]
 
 
 def _load(value: Any, default: Any) -> Any:
@@ -115,7 +101,7 @@ def _extract(run_json: dict) -> tuple[str, bool]:
         "chat text), plus athlete_json (one Athletes row) and workouts_json (recent WorkoutHistory rows) "
         "read from the athlete's Google Sheet via the Drive tool, and optional health_json (Apple Health / "
         "wearable data — sleep, resting_hr, hrv, workouts — that you read natively; the coach interprets it "
-        "for readiness). Renders an inline coaching card."
+        "for readiness). Returns the coaching response as text."
     )
 )
 async def repready_coach(message: str, active_user_id: str, athlete_json: str = "{}",
@@ -132,15 +118,13 @@ async def repready_coach(message: str, active_user_id: str, athlete_json: str = 
                                                 "Content-Type": "application/json"}, json=payload)
         if r.status_code != 200:
             return [mt.TextContent(type="text", text=f"GraphN run failed (HTTP {r.status_code}): {r.text[:300]}")]
-        text, ok = _extract(r.json())
+        text, _ok = _extract(r.json())
     except httpx.TimeoutException:
         return [mt.TextContent(type="text", text="GraphN workflow timed out — try again.")]
     except Exception as e:  # noqa: BLE001
         return [mt.TextContent(type="text", text=f"Bridge error calling GraphN: {e}")]
 
-    card = {"response": text, "active_user_id": active_user_id, "ok": ok,
-            "source": "GraphN workflow · RepReady"}
-    return _ui_result(card, "response.html", text)
+    return [mt.TextContent(type="text", text=text)]
 
 
 @mcp.tool(
@@ -150,7 +134,7 @@ async def repready_coach(message: str, active_user_id: str, athlete_json: str = 
         "Sheet — no LLM round-trip, so the row is reliable. Pass the trusted active_user_id and "
         "workout_json (date, session_type, title, details{stations:[...]}, duration_min, distance_km, "
         "avg_rpe, pain_flags, notes). This does NOT write — show the row, get the athlete's confirmation, "
-        "then YOU append append_values to the WorkoutHistory tab via the Drive tool. Renders a log card."
+        "then YOU append append_values to the WorkoutHistory tab via the Drive tool."
     )
 )
 async def repready_stage_log(active_user_id: str, workout_json: str = "{}") -> list:
@@ -161,7 +145,7 @@ async def repready_stage_log(active_user_id: str, workout_json: str = "{}") -> l
             f"Confirm, then I'll append it to the Sheet via Drive.\n\n```json\n"
             + json.dumps({"columns": staged["columns"], "append_values": staged["append_values"]},
                          ensure_ascii=False) + "\n```")
-    return _ui_result(staged, "log.html", text)
+    return [mt.TextContent(type="text", text=text)]
 
 
 @mcp.custom_route("/health", methods=["GET"])

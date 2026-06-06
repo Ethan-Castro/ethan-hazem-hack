@@ -15,7 +15,7 @@ Claude ──MCP connector──▶ RepReady Bridge (Lightning, public)
                                            coach  : agent RepReady_Coach + RepReady_Tools (hosted MCP)
                                            safety : agent RepReady_Safety (final review)
                                      └── output.result  (coaching markdown)
-                            └── returns result + inline mcp-ui coaching card to Claude
+                            └── returns the coaching result as plain text to Claude
    data: the /repready skill reads the athlete's Google Sheet via Claude's Drive tool and passes
          athlete_json + workouts_json into the workflow (GraphN can't reach Claude's Drive).
 ```
@@ -24,8 +24,8 @@ Claude ──MCP connector──▶ RepReady Bridge (Lightning, public)
 
 | Piece | ID / URL |
 |---|---|
-| GraphN hosted MCP `RepReady_Tools` | `mcp_043108c75b0f` (5 tools) |
-| GraphN agent `RepReady_Coach` (4 tools) | `agent_7848a0374eda` |
+| GraphN hosted MCP `RepReady_Tools` | `mcp_043108c75b0f` (6 tools) |
+| GraphN agent `RepReady_Coach` (5 tools) | `agent_7848a0374eda` |
 | GraphN agent `RepReady_Safety` | `agent_78aab7559c73` |
 | GraphN workflow `RepReady` | `wf_ab431a4cbd4d` |
 | **Bridge MCP — the Claude connector URL** | `https://8000-dep-01ktf25p53nw8c6s66zk4b0wrk-d.cloudspaces.litng.ai/mcp` |
@@ -34,7 +34,7 @@ Claude ──MCP connector──▶ RepReady Bridge (Lightning, public)
 
 GraphN's only public surface is the REST run endpoint (`POST …/workflows/<id>/run`, Bearer key) —
 Claude connectors speak MCP, not REST. The bridge is a tiny FastMCP server that turns the one tool
-`repready_coach` into a workflow run and re-renders the result as an inline card. It holds the GraphN
+`repready_coach` into a workflow run and returns the result as plain text. It holds the GraphN
 run config (`GRAPHN_API_KEY` / `GRAPHN_WORKSPACE` / `GRAPHN_WORKFLOW_ID`) as Lightning deployment env
 — never in the repo.
 
@@ -42,10 +42,10 @@ run config (`GRAPHN_API_KEY` / `GRAPHN_WORKSPACE` / `GRAPHN_WORKFLOW_ID`) as Lig
 
 | Path | What |
 |---|---|
-| `resources/repready_graphn_mcp/server.py` | GraphN **hosted** MCP code (5 tools, JSON-only dict returns). |
+| `resources/repready_graphn_mcp/server.py` | GraphN **hosted** MCP code (6 tools, JSON-only dict returns). |
 | `resources/repready_workflow/workflow.yaml` | The GraphN workflow DSL (gate → coach → safety). |
 | `resources/repready_workflow/coach_instructions.md`, `safety_instructions.md` | Agent instructions. |
-| `resources/repready_bridge/server.py` + `ui/response.html` | The bridge MCP + inline coaching card. |
+| `resources/repready_bridge/server.py` | The bridge MCP (wraps the workflow run; returns plain text). |
 | `resources/repready_bridge/deploy_lightning.py` | Deploys the bridge (passes GraphN env). |
 | `resources/repready_mcp/` | The original direct-tools MCP + 4 data-driven UI cards. **Superseded** by the workflow for the Claude path; kept as the standalone/UI reference. |
 | `resources/repready_seed/` | Google Sheet schema + seed CSVs (athletes, history, benchmarks, rules, demo prompts). |

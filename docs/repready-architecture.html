@@ -87,12 +87,12 @@
   <header>
     <div class="tag">HYROX coaching · GraphN × Claude</div>
     <h1>RepReady architecture</h1>
-    <p class="sub">Claude calls a <strong>GraphN workflow</strong> — exposed to Claude like an MCP, but through a workflow. A thin bridge turns one tool call into a workflow run and re-renders the result as an inline card. The athlete's data stays in their own Google Sheet.</p>
+    <p class="sub">Claude calls a <strong>GraphN workflow</strong> — exposed to Claude like an MCP, but through a workflow. A thin bridge turns one tool call into a workflow run and returns the result as text. The athlete's data stays in their own Google Sheet.</p>
   </header>
 
   <div class="legend">
     <span><i class="swatch"></i> request path</span>
-    <span><i class="swatch ret"></i> response + card</span>
+    <span><i class="swatch ret"></i> response</span>
     <span><i class="swatch data"></i> data plane (Google Drive)</span>
   </div>
 
@@ -123,15 +123,15 @@
           <div class="stage"><span class="b coach">coach</span><div><strong>RepReady_Coach</strong> agent — calls the hosted tools for benchmarks, weak points, plan validation &amp; workout formatting.</div></div>
           <div class="stage"><span class="b safety">safety</span><div><strong>RepReady_Safety</strong> agent — final guardrail pass (pain/nutrition/disclaimer) before returning.</div></div>
         </div>
-        <div class="toolrow">Tools = GraphN <strong>hosted</strong> MCP <code>RepReady_Tools</code> (mcp_043108c75b0f): <code>check_request_safety</code> · <code>get_benchmarks</code> · <code>generate_training_summary</code> · <code>validate_training_plan</code> · <code>format_workout_log_row</code></div>
+        <div class="toolrow">Tools = GraphN <strong>hosted</strong> MCP <code>RepReady_Tools</code> (mcp_043108c75b0f): <code>check_request_safety</code> · <code>get_benchmarks</code> · <code>generate_training_summary</code> · <code>validate_training_plan</code> · <code>format_workout_log_row</code> · <code>summarize_recovery_context</code></div>
       </div>
 
       <div class="arrow ret"><span class="lbl">output.result → coaching response</span></div>
 
       <div class="node">
         <div class="n">4</div>
-        <h3>Back in Claude <span class="pill claude">inline card</span></h3>
-        <p>The bridge returns the coaching text <em>and</em> an inline <code>text/html</code> mcp-ui card. For logging, the workflow stages a <code>WorkoutHistory</code> row; the skill appends it to the Sheet via Drive after you confirm.</p>
+        <h3>Back in Claude <span class="pill claude">coaching text</span></h3>
+        <p>The bridge returns the coaching response as plain text. For logging, <code>repready_stage_log</code> stages a <code>WorkoutHistory</code> row; the skill appends it to the Sheet via Drive after you confirm.</p>
       </div>
     </div>
 
