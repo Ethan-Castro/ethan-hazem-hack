@@ -26,6 +26,11 @@ input:
     required: false
     default: "[]"
     description: The athlete's recent WorkoutHistory rows as a JSON-array string, read from their Google Sheet.
+  health_json:
+    type: string
+    required: false
+    default: "{}"
+    description: Optional Apple Health / wearable recovery data (sleep, resting_hr, hrv, workouts) as a JSON string. Claude reads it natively and passes it in; the coach interprets it via summarize_recovery_context.
 chat_hints: |
   Provide `message` (the athlete's question) and `active_user_id` (e.g. ath_amelia). `athlete_json` and
   `workouts_json` are the athlete's own Sheet rows as JSON strings — the calling skill reads them from Google
@@ -59,8 +64,11 @@ steps:
       workouts_json (pass to tools verbatim):
       ${ input.workouts_json }
 
+      health_json (Apple Health / wearable data; pass to summarize_recovery_context verbatim — may be "{}"):
+      ${ input.health_json }
+
       Coach this athlete per your instructions. Call the RepReady tools for any numbers, weak points,
-      plan validation, or workout logging. Be concise, concrete, and safety-first.
+      recovery/readiness, plan validation, or workout logging. Be concise, concrete, and safety-first.
     output: coach_draft
   safety:
     call: agent

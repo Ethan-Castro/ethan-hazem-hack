@@ -85,6 +85,35 @@ def _aget(d: dict, *keys: str, default: Any = None) -> Any:
     return default
 
 
+def _own_rows(rows: Any, active_user_id: str) -> tuple[list, int]:
+    """Defense-in-depth: keep only rows that belong to the active user. A row with no
+    user_id is trusted (kept); a row tagged to a DIFFERENT user is dropped. Returns
+    (kept_rows, dropped_count). The skill should already pass only the active user's
+    rows — this guarantees a stray foreign row can never leak through the tools."""
+    aid = _norm(active_user_id)
+    if isinstance(rows, dict):
+        rows = [rows]
+    kept: list = []
+    dropped = 0
+    for r in rows or []:
+        if not isinstance(r, dict):
+            continue
+        uid = _norm(_aget(r, "user_id", "athlete_id", "userId", default=""))
+        if uid and aid and uid != aid:
+            dropped += 1
+            continue
+        kept.append(r)
+    return kept, dropped
+
+
+def _athlete_matches(athlete: dict, active_user_id: str) -> bool:
+    """True if the athlete row is the active user's (or carries no id to check)."""
+    if not isinstance(athlete, dict) or not athlete:
+        return True
+    uid = _norm(_aget(athlete, "user_id", "athlete_id", "id", "userId", default=""))
+    return uid in ("", _norm(active_user_id))
+
+
 def _norm(s: Any) -> str:
     return str(s or "").strip().lower().replace(" ", "_")
 
@@ -195,6 +224,9 @@ def generate_training_summary(active_user_id: str, athlete_json: str = "{}", wor
     workouts = _load(workouts_json, [])
     if isinstance(workouts, dict):
         workouts = [workouts]
+    if not _athlete_matches(athlete, active_user_id):
+        athlete = {}  # ignore an athlete row that isn't the active user's
+    workouts, dropped_foreign = _own_rows(workouts, active_user_id)
     division = (_aget(athlete, "division", default="Open")).title()
     gender = (_aget(athlete, "gender", default="F")).upper()[:1]
     by_type: dict[str, int] = {}
@@ -251,6 +283,8 @@ def generate_training_summary(active_user_id: str, athlete_json: str = "{}", wor
     if not weak_points:
         payload["weak_points_note"] = ("No structured station splits in recent workouts. Log station times as "
                                        "details.stations[].time_sec to surface weak points vs benchmark.")
+    if dropped_foreign:
+        payload["dropped_foreign_rows"] = dropped_foreign  # rows tagged to another user, ignored
     return payload
 
 
@@ -263,6 +297,8 @@ def validate_training_plan(active_user_id: str, plan_json: str = "{}", athlete_j
     "distance_km":7,"targets":"..."}]}]}. Returns {ok, summary, counts, weeks, issues}."""
     plan = _load(plan_json, {})
     athlete = _load(athlete_json, {})
+    if not _athlete_matches(athlete, active_user_id):
+        athlete = {}  # don't validate against another athlete's profile/injuries
     weeks = (plan.get("weeks") if isinstance(plan, dict) else plan) or []
     active_areas = sorted({
         _norm(inj.get("area")) for inj in _load(_aget(athlete, "injuries", "injury", default=[]), []) or []
@@ -346,6 +382,71 @@ def format_workout_log_row(active_user_id: str, workout_json: str = "{}") -> dic
     return {"title": "Workout ready to log", "sheet_tab": "WorkoutHistory", "columns": columns, "row": row,
             "append_values": [[row[c] for c in columns]],
             "confirm": "Append this row to WorkoutHistory?", "active_user_id": active_user_id}
+
+
+@mcp.tool
+def summarize_recovery_context(active_user_id: str, health_json: str = "{}") -> dict:
+    """Interpret Apple Health / wearable data into compact recovery signals. Claude reads the
+    health data (it owns Apple Health access) and passes it in as health_json — this tool only
+    INTERPRETS it, it does NOT plan training. health_json may include any of: sleep,
+    resting_hr, hrv, and workouts — each a list of {date, value} (value aliases: hours/bpm/ms
+    accepted). Returns sleep / resting-HR / HRV trends (recent vs baseline), 7-day workout
+    count, and a deterministic readiness flag (green|amber|red) + one-line guidance hint."""
+    h = _load(health_json, {})
+    if not isinstance(h, dict):
+        h = {}
+
+    def _series(*keys: str) -> list[float]:
+        raw = _load(_aget(h, *keys, default=[]), [])
+        out: list[float] = []
+        for x in (raw if isinstance(raw, list) else [raw]):
+            v = x.get("value", x.get("hours", x.get("bpm", x.get("ms", x.get("minutes"))))) if isinstance(x, dict) else x
+            try:
+                out.append(float(v))
+            except (TypeError, ValueError):
+                pass
+        return out
+
+    def _avg(xs: list[float]) -> float | None:
+        return round(sum(xs) / len(xs), 1) if xs else None
+
+    def _trend(xs: list[float], lower_is_better: bool) -> dict:
+        recent, base = _avg(xs[-3:]), _avg(xs)
+        if recent is None or base is None or len(xs) < 2:
+            return {"recent": recent, "baseline": base, "direction": "flat", "pct_change": 0.0, "flag": "ok"}
+        delta = recent - base
+        pct = (delta / base * 100) if base else 0.0
+        worse = (delta > 0) if lower_is_better else (delta < 0)
+        return {"recent": recent, "baseline": base,
+                "direction": "up" if delta > 0 else ("down" if delta < 0 else "flat"),
+                "pct_change": round(pct, 1), "flag": "watch" if (worse and abs(pct) >= 5) else "ok"}
+
+    sleep = _series("sleep", "sleep_hours", "sleepHours")
+    rhr = _series("resting_hr", "resting_heart_rate", "restingHeartRate", "rhr")
+    hrv = _series("hrv", "heart_rate_variability", "hrv_ms")
+    workouts = _load(_aget(h, "workouts", "recent_workouts", default=[]), [])
+    workouts, _ = _own_rows(workouts, active_user_id)
+
+    sleep_t, rhr_t, hrv_t = _trend(sleep, False), _trend(rhr, True), _trend(hrv, False)
+    last_sleep = sleep[-1] if sleep else None
+    flags: list[str] = []
+    if hrv_t["flag"] == "watch":
+        flags.append("HRV suppressed vs baseline")
+    if rhr_t["flag"] == "watch":
+        flags.append("resting HR elevated vs baseline")
+    if last_sleep is not None and last_sleep < 6:
+        flags.append("short sleep last night")
+    if sleep_t["recent"] is not None and sleep_t["recent"] < 6.5:
+        flags.append("running a sleep debt")
+    readiness = "red" if len(flags) >= 2 else ("amber" if flags else "green")
+    hint = {"green": "Recovery looks fine — train as planned.",
+            "amber": "One recovery flag — keep intensity in check and prioritize sleep.",
+            "red": "Multiple recovery flags — favor easy/recovery work today, not a hard session."}[readiness]
+    return {"title": "Recovery context", "readiness": readiness, "flags": flags, "guidance": hint,
+            "sleep": {"last_night_hours": last_sleep, **sleep_t}, "resting_hr": rhr_t, "hrv": hrv_t,
+            "recent_workouts_7d": len(workouts),
+            "note": "Interpretation only — the coach decides the session. Not medical advice.",
+            "active_user_id": active_user_id}
 
 
 if __name__ == "__main__":
