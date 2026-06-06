@@ -45,6 +45,20 @@ For detailed guides, load a specific skill:
   `graphn docs skills event-gateway`     — Event-gateway triggers: cron schedules, webhooks, HMAC auth, and graphn trigger commands
   `graphn docs skills gateway-modes`     — Sync, async, batch, and event gateway modes: when to use each, --gateways flag, async polling pattern
 
+## Example workflows (reference, in `examples/`)
+
+The deployed workflow is `workflow.yaml` at the repo root. The `examples/` directory holds other GraphN starter/hackathon workflows kept **purely as DSL-structure reference** — they are NOT deployed from this repo. Skim them to see how the DSL is shaped before writing or editing DSL; adapt patterns, do not copy verbatim. See [examples/README.md](examples/README.md) for what each demonstrates.
+
+| File | Pattern it shows |
+|------|------------------|
+| `examples/city-explorer.yaml` | Two-agent research → synthesize (our same shape); `res://` ID refs; `after:` sequencing |
+| `examples/rag-research-assistant.yaml` | Minimal RAG; components by name with `{}`; `chat_hints` for input steering |
+| `examples/perplexity-company-data.yaml` | `call: function` + `call: for_each` loop; functions + agents + MCP in one DAG |
+| `examples/api-data-summarizer.yaml` | Smallest function-fetch → agent-summarize; JSON-string `input_template`, expression helpers |
+| `examples/workflow-security-auditor.yaml` | `secrets:` with `$secret:` refs; audit → harden (OWASP LLM Top 10) |
+
+`examples/developing-with-agents.md` — the full CLI install / auth / edit → validate → dry-run → publish loop, MCP-serve setup, and troubleshooting.
+
 ## Critical Rules (MUST follow)
 
 - **ALWAYS use the returned ID** after any `create` command for ALL subsequent operations — `get`, `update`, `publish`, `test`, `delete`. Names can resolve to wrong resources. NEVER pass a name where an ID is expected.

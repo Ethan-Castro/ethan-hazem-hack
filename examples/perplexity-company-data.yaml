@@ -1,0 +1,93 @@
+document:
+  dsl: 1.0.0
+  name: Your Own Perplexity-Style Search on Company Data
+  version: 0.1.0
+agents:
+  Researcher: {}
+  Synthesizer: {}
+functions:
+  resolve_files: {}
+  convert_document: {}
+  ingest_to_kb: {}
+mcp_servers:
+  RAG Tools: {}
+input:
+  storage_id:
+    type: string
+    description: Storage bucket name (defaults to 'default')
+    required: true
+  files:
+    type: array
+    description: File paths including storage bucket (e.g. 'default/chat/conv123/report.pdf')
+    required: true
+  query:
+    type: string
+    description: Research question to answer
+    required: true
+  kb_id:
+    type: string
+    description: Existing KB ID to ingest into (leave empty to auto-create)
+    required: false
+chat_hints: |-
+  IMPORTANT for storage_id and files: File paths already include the storage bucket as the first segment (e.g. 'default/chat/abc/report.pdf'). Use them as-is in the files array -- do NOT strip the bucket prefix. Set storage_id to 'default' unless the user specifies a different bucket. Do NOT ask for storage_id or files if values are already present in the message. Users can also pass a directory path ending with '/' (e.g. 'default/chat/conv123/') to process all files in that folder.
+
+  IMPORTANT for kb_id: NEVER ask the user for kb_id. If [last_kb_id=...] appears in the conversation context, use that value. Otherwise omit kb_id or pass it as empty string -- the system will auto-create or reuse a KB automatically.
+steps:
+  resolve_files:
+    call: function
+    function: resolve_files
+    input:
+      files: ${ input.files }
+      kb_id: ${ input.kb_id || '' }
+    output: resolve_files
+  ingest_files:
+    call: for_each
+    items: steps.resolve_files.output.files
+    as: file_path
+    max_iterations: 50
+    output: ingest_loop
+    do:
+      convert_document:
+        call: function
+        function: convert_document
+        input:
+          file_path: ${ steps.ingest_files.file_path }
+          output_bucket: ${ input.storage_id }
+          ocr_engine: auto
+        output: convert
+      ingest_to_kb:
+        call: function
+        function: ingest_to_kb
+        input:
+          markdown_path: ${ steps.convert_document.output.markdown_path }
+          kb_id: ${ input.kb_id || steps.ingest.output.kb_id || '' }
+          file_path: ${ steps.ingest_files.file_path }
+        output: ingest
+    after:
+      - resolve_files
+  researcher:
+    call: agent
+    agent: Researcher
+    input_template: |-
+      Knowledge Base ID: ${ steps.ingest_to_kb.output.kb_id || input.kb_id }
+
+      Ingested files: ${ input.files }
+
+      Research Question: ${ input.query }
+    output: researcher
+    after:
+      - ingest_files
+  synthesizer:
+    call: agent
+    agent: Synthesizer
+    input_template: |-
+      Based on the following research:
+
+      ${ steps.researcher.output }
+
+      Create a comprehensive response to: ${ input.query }
+    output: synthesizer
+    after:
+      - researcher
+output:
+  result: ${ steps.synthesizer.output }

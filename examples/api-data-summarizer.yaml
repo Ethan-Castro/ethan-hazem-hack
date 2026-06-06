@@ -1,0 +1,36 @@
+document:
+  dsl: 1.0.0
+  name: API Data Summarizer
+  version: 0.1.0
+agents:
+  Data_Summarizer: {}
+functions:
+  fetch_api_data: {}
+input:
+  endpoint:
+    type: string
+    description: API endpoint URL
+    required: true
+  query:
+    type: string
+    description: Search query or parameter
+    required: false
+steps:
+  fetch_api_data:
+    call: function
+    function: fetch_api_data
+    input_template: '{"endpoint": "${ input.endpoint }", "query": "${ input.query || \"\" }"}'
+    output: fetch_data
+  summarize_results:
+    call: agent
+    agent: Data_Summarizer
+    input_template: |-
+      User query: ${ input.query || "Summarize the data" }
+
+      API Response from ${ input.endpoint }:
+      ${ JSON.stringify(steps.fetch_data.output, null, 2) }
+    output: summarize
+    after:
+      - fetch_api_data
+output:
+  result: ${ steps.summarize_results.output }

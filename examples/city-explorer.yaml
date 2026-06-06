@@ -1,0 +1,58 @@
+agents:
+    LocalScout: res://agents/agent_03d3abdc8fa9
+    TripPlanner: res://agents/agent_4df71fe430ce
+document:
+    dsl: 1.0.0
+    name: City Explorer
+    version: 0.2.0
+input:
+    dates:
+        description: Trip dates in YYYY-MM-DD format or plain English (e.g. 'June 6-8, 2026')
+        type: string
+    description:
+        description: What's the occasion and any preferences? (e.g. 'graduation dinner, loves Italian food and rooftop bars')
+        type: string
+    group_size:
+        description: Number and type of people (e.g. '6 adults' or 'family of 4 with young kids')
+        type: string
+    location:
+        description: City or neighborhood (e.g. 'Lower East Side, Manhattan')
+        type: string
+mcp_servers:
+    CityTools: res://mcp_servers/mcp_22e53d2661bb
+output:
+    result: ${steps.plan.output}
+steps:
+    plan:
+        after:
+            - scout
+        agent: TripPlanner
+        call: agent
+        input_template: |
+            Build a day-by-day itinerary from this research.
+
+            Original trip context:
+            - Location: ${input.location}
+            - Dates: ${input.dates}
+            - Group: ${input.group_size}
+            - Occasion: ${input.description}
+
+            <research>
+            ${steps.scout.output}
+            </research>
+        output: itinerary
+    scout:
+        agent: LocalScout
+        call: agent
+        input_template: |
+            Research options for the following trip:
+
+            <trip>
+            Location: ${input.location}
+            Dates: ${input.dates}
+            Group: ${input.group_size}
+            Occasion: ${input.description}
+            </trip>
+
+            For weather forecasts, use the first date of the trip in YYYY-MM-DD format.
+        output: research_brief

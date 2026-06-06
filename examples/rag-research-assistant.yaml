@@ -1,0 +1,40 @@
+document:
+  dsl: 1.0.0
+  name: RAG Research Assistant
+  version: 0.1.0
+agents:
+  Researcher: {}
+  Synthesizer: {}
+mcp_servers:
+  RAG Tools: {}
+input:
+  query:
+    type: string
+    description: What is retrieval augmented generation?
+    required: true
+  kb_id:
+    type: string
+    description: kb_your_kb_id_here
+    required: true
+chat_hints: 'IMPORTANT for kb_id: NEVER ask the user for kb_id. If [last_kb_id=...] appears in the conversation context, use that value. Otherwise omit kb_id or pass it as empty string -- the system will auto-create or reuse a KB automatically.'
+steps:
+  researcher:
+    call: agent
+    agent: Researcher
+    input_template: |-
+      Knowledge Base ID: ${ input.kb_id }
+
+      Research Question: ${ input.query }
+    output: researcher
+  synthesizer:
+    call: agent
+    agent: Synthesizer
+    input_template: |-
+      Based on the following research:
+
+      ${ steps.researcher.output }
+
+      Create a comprehensive response.
+    output: synthesizer
+    after:
+      - researcher

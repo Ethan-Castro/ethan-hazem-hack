@@ -31,6 +31,7 @@ Workflow ID: `wf_d20b56206b85` · Workspace: `ws_100024a6d182`
 | `resources/agent_patientadvisor.json` | PatientAdvisor agent definition. |
 | `resources/mcp_healthtools.json` | HealthTools MCP server spec + tool schemas. |
 | `inputs/*.json` | Example inputs for dry-runs. |
+| `examples/` | Other GraphN workflow YAMLs kept as DSL-structure reference (not deployed). See `examples/README.md`. |
 
 > Note: the HealthTools tool *source* (Python) is not exported by the API for
 > hosted MCP servers — only the tool schemas. Edit tool code in the GraphN UI.

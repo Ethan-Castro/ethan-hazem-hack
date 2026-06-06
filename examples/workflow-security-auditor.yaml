@@ -1,0 +1,42 @@
+agents:
+    HardeningAdvisor: res://agents/agent_f70e6afad59d
+    SecurityAuditor: res://agents/agent_3627c6c90b53
+document:
+    dsl: 1.0.0
+    name: Workflow Security Auditor
+    version: 0.1.0
+input:
+    target_workflow:
+        description: Name or ID of the GraphN workflow you want to audit (e.g. 'Health Research Assistant' or 'wf_abc123')
+        type: string
+mcp_servers:
+    AuditTools: res://mcp_servers/mcp_2fb5657f4655
+output:
+    result: ${steps.harden.output}
+secrets:
+    GRAPHN_API_KEY: $secret:graphn-api-key
+    GRAPHN_CP_URL: $secret:graphn-cp-url
+    GRAPHN_WORKSPACE: $secret:graphn-workspace
+steps:
+    audit:
+        agent: SecurityAuditor
+        call: agent
+        input_template: |
+            Audit this GraphN workflow for security vulnerabilities: ${input.target_workflow}
+
+            Fetch its full bundle with inspect_workflow, then systematically analyze every attack surface.
+            Search for relevant research to back your findings.
+        output: audit_findings
+    harden:
+        after:
+            - audit
+        agent: HardeningAdvisor
+        call: agent
+        input_template: |
+            Produce a hardening report from this security audit:
+
+            Target workflow: ${input.target_workflow}
+
+            Audit findings:
+            ${steps.audit.output}
+        output: security_report
